@@ -36,35 +36,6 @@ The system outputs:
 
 ---
 
-## Project Structure
-
-
-TradeCore_Alpha/
-│
-├── app/
-│ ├── main.py # Entry point
-│ ├── config.py # Environment settings
-│ │
-│ ├── clients/
-│ │ ├── alpaca_market_data.py # Market data (Alpaca)
-│ │ └── finnhub_news.py # News API (Finnhub)
-│ │
-│ ├── models/
-│ │ └── market.py # Data models (Bar, TradeIdea, etc.)
-│ │
-│ ├── services/
-│ │ ├── catalyst_service.py # News filtering + scoring
-│ │ ├── sentiment_service.py # Price-based sentiment scoring
-│ │ ├── signal_service.py # Trade setup generation
-│ │ └── risk_service.py # ATR + position sizing
-│ │
-│ └── utils/
-│
-└── .env # API keys and configuration
-
-
----
-
 ## Setup
 
 ### 1. Clone project
