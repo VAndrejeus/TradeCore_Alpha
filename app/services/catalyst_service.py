@@ -530,9 +530,11 @@ class CatalystService:
             bonus += 2.0
         elif event.category == "product":
             bonus += 1.0
+        else:
+            bonus += 0.0
 
         # =========================
-        # 🚀 MAJOR DEAL BOOST
+        # 🚀 MAJOR DEAL BOOST (KEY FIX)
         # =========================
         if any(x in headline for x in [
             "deal", "acquisition", "acquires", "acquired",
@@ -543,68 +545,43 @@ class CatalystService:
         # =========================
         # 🏛️ GOVERNMENT / STRATEGIC
         # =========================
-        if any(x in headline for x in ["darpa", "government", "defense"]):
+        if any(x in headline for x in ["darpa", "government", "defense", "department"]):
             bonus += 3.0
 
         # =========================
-        # 🧠 BUSINESS IMPACT
+        # 🧠 REAL BUSINESS IMPACT
         # =========================
         if any(x in headline for x in ["contract", "award", "order", "customer", "selected"]):
             bonus += 3.0
 
         # =========================
-        # ❌ PRODUCT HYPE PENALTY (FINAL TUNE)
+        # ⚠️ DOWNGRADE PRODUCT-ONLY EVENTS
         # =========================
-        if any(x in headline for x in [
-            "final", "limited", "only", "edition", "exclusive"
-        ]):
-            bonus -= 6.0  # was 4.0
-
-        if any(x in headline for x in [
-            "making just",
-            "only",
-            "final model",
-        ]):
-            bonus -= 3.0
+        if event.category == "product":
+            if any(x in headline for x in [
+                "tv", "fire tv", "stick", "preorder", "launches slimmer",
+                "new version", "refresh", "upgrade"
+            ]):
+                bonus -= 3.0
 
         # =========================
-        # ❌ INDIRECT / NON-OWNERSHIP (FIX AMD)
-        # =========================
-        if any(x in headline for x in [
-            "investment from",
-            "backs",
-            "invests in",
-            "venture",
-            "funding"
-        ]):
-            bonus -= 4.0
-
-        # =========================
-        # ❌ AWARD / RECOGNITION (FIX CRWD)
-        # =========================
-        if any(x in headline for x in [
-            "named",
-            "ranked",
-            "customers’ choice",
-            "leader in",
-            "report"
-        ]):
-            bonus -= 5.0
-
-        # =========================
-        # ❌ COMMENTARY / WRAPPERS
+        # ⚠️ PENALIZE COMMENTARY / WRAPPERS
         # =========================
         if any(x in headline for x in [
             "paid for itself",
             "stock jumps",
+            "stock rises",
+            "stock falls",
             "shares rise",
+            "shares fall",
+            "what investors need to know",
             "buy or sell",
             "time to buy"
         ]):
             bonus -= 6.0
 
         # =========================
-        # ❌ SYMPATHY / SECTOR
+        # ⚠️ PENALIZE SYMPATHY / INDIRECT
         # =========================
         if any(x in headline for x in [
             "stocks surge",
@@ -614,6 +591,17 @@ class CatalystService:
             "versus"
         ]):
             bonus -= 4.0
+
+        # =========================
+        # ⚠️ WEAK CONTEXT PENALTY
+        # =========================
+        if any(x in headline for x in [
+            "powered by",
+            "using",
+            "built on",
+            "with support from"
+        ]):
+            bonus -= 2.0
 
         # =========================
         # 🧩 OWNERSHIP BOOST
