@@ -3,44 +3,114 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
+import random
 
 WATCHLIST_FILE = Path("app/data/watchlist/default.json")
 WATCHLIST_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 st.title("TradeCore Alpha")
 
+# check to see if watchlist file already exist and load it, or create empty watchlist
 if "watchlist" not in st.session_state:
     if WATCHLIST_FILE.exists():
         st.session_state.watchlist =json.loads(WATCHLIST_FILE.read_text(encoding="utf-8"))
     else:
         st.session_state.watchlist = []
 
-symbol = st.text_input("Enter a stock symbol")
+# initiate empty symbol key
+if "symbol" not in st.session_state:
+    st.session_state.symbol = ""
 
-if st.button("Add symbol"):
-    clean_symbol = symbol.upper().strip()
+# funstion for the add symbol button to use
+def add_symbol():
+    clean_symbol = st.session_state.symbol.upper().strip()
+    
+    if not clean_symbol:
+        st.session_state.message = "Please enter a symbol."
+        st.session_state.message_type = "warning"
+        return
+    
+    if clean_symbol in st.session_state.watchlist: # check for duplicate already existing in wactchilst 
+        st.session_state.message = f"{clean_symbol} is already in the watchlist"
+        st.session_state.message_type = "warning"
+        st.session_state.symbol = ""
+        return
+    
+    # if all is good, add symbol to the watchlist
+    st.session_state.watchlist.append(clean_symbol)
+    st.session_state.symbol = "" # clean input field after successfull watchlist addition
+    st.session_state.message = f"{clean_symbol} added to the watchlist"
+    st.session_state.message_type = "success"  
 
-    if clean_symbol and clean_symbol not in st.session_state.watchlist:
-        st.session_state.watchlist.append(clean_symbol)
+# remove symbol function to use with the remove button
+def remove_selected_symbol():
+    selected_symbol = st.session_state.remove_symbol
+    if not selected_symbol:
+        st.session_state.message = "Please select a symbol to remove"
+        st.session_state.message_type = "warning"
+        return
+    if selected_symbol in st.session_state.watchlist:
+        st.session_state.watchlist.remove(selected_symbol)
+        st.session_state.message = f"{selected_symbol} was removed from the watchlist"
+        st.session_state.message_type = "success"
+        st.session_state.remove_symbol = "" # reset dropdown to empty
 
-remove_symbol = st.selectbox(
-    "Select a symbol to remove",
-    options=[""] + st.session_state.watchlist,
-)
 
-if st.button("Remove Symbol"):
-    if remove_symbol in st.session_state.watchlist:
-        st.session_state.watchlist.remove(remove_symbol)
+# create columns to hold symbol input field and add button in a container
+with st.container(border=True):
+    add_col1, add_col2 = st.columns([1, 1])
+    with add_col1:
+        st.text_input("Enter a stock symbol", key="symbol") # store text field input inside session state
+    with add_col2:
+        st.write("")
+        st.button( "Add symbol", on_click=add_symbol, # add symbol button with connecte fucnton ( callback on_click)
+                  disabled=not st.session_state.symbol.strip()) #disabled if input is empty
+
+st.divider()
+
+#Create columns to hold remove dropbox and remove button in a container
+with st.container(border=True):
+    rem_col1, rem_col2 = st.columns([1, 1])
+    with rem_col1:
+        st.selectbox("Select a symbol to remove",
+            options=[""] + st.session_state.watchlist, key="remove_symbol",
+        )
+    with rem_col2:
+        #remove symbol button
+        st.write("")
+        st.button("Remove Symbol", on_click=remove_selected_symbol,
+                  disabled=not st.session_state.remove_symbol) # disabled if nothing is selected
+    
 
 if st.button("Save watchlist"):
     WATCHLIST_FILE.write_text(
         json.dumps(st.session_state.watchlist, indent=2),
         encoding="utf-8",
     )
-    st.success("Watchlist saved.")
+    st.session_state.message = "Watchlist saved."
+    st.session_state.message_type = "success"
 
-st.write("Current watchlist:")
+#Display warning and success messages logic, also remove messages after dsiplay
+if "message" in st.session_state:
+    if st.session_state.message_type == "success":
+        st.success(st.session_state.message)
+    elif st.session_state.message_type =="warning":
+        st.warning(st.session_state.message)
 
-watchlist_df = pd.DataFrame({"Symbol": st.session_state.watchlist})
+    #delete messages
+    del st.session_state.message
+    del st.session_state.message_type
 
-st.dataframe(watchlist_df, use_container_width=True, hide_index=True)
+# loop that generates fake prices
+fake_prices = []
+for symbol in st.session_state.watchlist:
+    price = round(random.uniform(100, 500), 2)
+    fake_prices.append(price)
+
+with st.container(border=True):
+
+    st.write("Current watchlist:")
+
+    watchlist_df = pd.DataFrame({"Symbol": st.session_state.watchlist, "Price": fake_prices})
+
+    st.dataframe(watchlist_df, use_container_width=True, hide_index=True)
