@@ -5,8 +5,30 @@ import pandas as pd
 import streamlit as st
 import random
 
+#load alpacamarket for symbol data
+from app.clients.alpaca_market_data import AlpacaMarketDataClient
+from app.config import Settings
+
+
+
+
+
+
+
 WATCHLIST_FILE = Path("app/data/watchlist/default.json")
 WATCHLIST_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+settings = Settings.from_env()
+
+alpaca = AlpacaMarketDataClient(
+    api_key=settings.alpaca_api_key,
+    secret_key=settings.alpaca_secret_key,
+    trading_base_url=settings.alpaca_base_url,
+    data_base_url=settings.alpaca_data_url,
+    data_feed=settings.alpaca_data_feed,
+)
+
+
 
 st.title("TradeCore Alpha")
 
@@ -55,6 +77,22 @@ def remove_selected_symbol():
         st.session_state.message_type = "success"
         st.session_state.remove_symbol = "" # reset dropdown to empty
 
+# color for the %change column function
+def color_change(value):
+    if value is None:
+        return ""
+    if value > 0:
+        return "color: green"
+    if value < 0:
+        return "color: red"
+    return ""
+
+#formatter for the %change column function
+def format_change(x):
+    if x is None:
+        return "N/A"
+    return f"{x:+.2f}%"
+
 
 # create columns to hold symbol input field and add button in a container
 with st.container(border=True):
@@ -80,15 +118,24 @@ with st.container(border=True):
         st.write("")
         st.button("Remove Symbol", on_click=remove_selected_symbol,
                   disabled=not st.session_state.remove_symbol) # disabled if nothing is selected
-    
 
-if st.button("Save watchlist"):
-    WATCHLIST_FILE.write_text(
-        json.dumps(st.session_state.watchlist, indent=2),
-        encoding="utf-8",
-    )
-    st.session_state.message = "Watchlist saved."
-    st.session_state.message_type = "success"
+#columns for add to watchlist and refresh buttons   
+watch_col1, watch_col2 = st.columns([1,1])
+with watch_col1:
+    if st.button("Save watchlist"):
+        WATCHLIST_FILE.write_text(
+            json.dumps(st.session_state.watchlist, indent=2),
+            encoding="utf-8",
+        )
+        st.session_state.message = "Watchlist saved."
+        st.session_state.message_type = "success"
+with watch_col2:
+    # refresh button for the watchlist
+    if st.button("Refrsh"):
+        st.session_state.message = "Watchlist refreshed"
+        st.session_state.message_type = "success"
+        st.rerun()
+        
 
 #Display warning and success messages logic, also remove messages after dsiplay
 if "message" in st.session_state:
@@ -101,16 +148,54 @@ if "message" in st.session_state:
     del st.session_state.message
     del st.session_state.message_type
 
-# loop that generates fake prices
-fake_prices = []
+# loop that generates numbers from alpaca
+prices = []
+changes = []
 for symbol in st.session_state.watchlist:
-    price = round(random.uniform(100, 500), 2)
-    fake_prices.append(price)
+    bars = alpaca.get_bars(symbol, settings.swing_timeframe, limit=2)
+    
+    if len(bars) < 2:
+        prices.append(None)
+        changes.append(None)
+        continue
+    latest = bars[-1].close
+    previous = bars[-2].close
+
+    prices.append(latest)
+
+    if previous == 0:
+        changes.apeend(None)
+    else:
+        change = (latest - previous) / previous * 100
+        changes.append(change)
+
+
+
+
 
 with st.container(border=True):
 
     st.write("Current watchlist:")
 
-    watchlist_df = pd.DataFrame({"Symbol": st.session_state.watchlist, "Price": fake_prices})
+    watchlist_df = pd.DataFrame({"Symbol": st.session_state.watchlist, "Price": prices, "% Change": changes})
 
-    st.dataframe(watchlist_df, use_container_width=True, hide_index=True)
+    st.dataframe(watchlist_df.style.format( {"Price": "${:.2f}", "% Change": format_change}).applymap(color_change, subset=["% Change"]), use_container_width=True, hide_index=True)
+
+with st.container(border=True):
+
+    st.write("Current Catalyst Events:")
+
+    signals_df = pd.DataFrame({"Symbol": st.session_state.watchlist,
+                               "Status" : ["Test" for symbol in st.session_state.watchlist],
+                               "Setup": ["Test_setup" for symbol in st.session_state.watchlist], 
+                               "Score": [0 for symbol in st.session_state.watchlist],
+                               "Trigger": ["Test trigger" for symbol in st.session_state.watchlist],
+                               "Entry": [random.uniform(50, 200) for symbol in st.session_state.watchlist], 
+                               "Stop": [random.uniform(50, 200) for symbol in st.session_state.watchlist], 
+                               "Target 1": [random.uniform(5, 200) for symbol in st.session_state.watchlist], 
+                               "Target 2": [random.uniform(50, 200) for symbol in st.session_state.watchlist] })
+    
+    st.dataframe(signals_df.style.format({"Entry": "${:.2f}", "Stop" : "${:.2f}", "Target 1": "${:.2f}", "Target 2": "${:.2f}"}),
+                use_container_width=True)
+
+                                          
