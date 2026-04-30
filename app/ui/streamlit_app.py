@@ -5,13 +5,20 @@ import pandas as pd
 import streamlit as st
 import random
 
+#load watchlist from backend
+from app.models.watchlist import Watchlist, WatchlistItem
 #load alpacamarket for symbol data
 from app.clients.alpaca_market_data import AlpacaMarketDataClient
+
+#Adding services
+from app.clients.finnhub_news import FinnhubNewsClient
+from app.services.scan_service import ScanService
+from app.services.catalyst_service import CatalystService
+from app.services.sentiment_service import SentimentService
+from app.services.signal_service import SignalService
+from app.services.risk_service import RiskService
+#load config file
 from app.config import Settings
-
-
-
-
 
 
 
@@ -28,8 +35,19 @@ alpaca = AlpacaMarketDataClient(
     data_feed=settings.alpaca_data_feed,
 )
 
+finnhub = FinnhubNewsClient(
+    api_key=settings.finnhub_api_key,
+    base_url=settings.finnhub_base_url,
+)
 
-
+scan_service = ScanService(
+    alpaca=alpaca,
+    finnhub=finnhub,
+    catalyst_service=CatalystService(),
+    sentiment_service=SentimentService(),
+    signal_service=SignalService(),
+    risk_service=RiskService(),
+)
 st.title("TradeCore Alpha")
 
 # check to see if watchlist file already exist and load it, or create empty watchlist
@@ -87,12 +105,16 @@ def color_change(value):
         return "color: red"
     return ""
 
-#formatter for the %change column function
+#formatter for the numbers with None
 def format_change(x):
     if x is None:
         return "N/A"
     return f"{x:+.2f}%"
-
+#formatter for the prices
+def format_price(x):
+    if x is None:
+        return "N/A"
+    return f"${x:+.2f}"
 
 # create columns to hold symbol input field and add button in a container
 with st.container(border=True):
@@ -170,7 +192,13 @@ for symbol in st.session_state.watchlist:
         changes.append(change)
 
 
-
+backend_watchlist = Watchlist(
+    name="default",
+    items=[
+        WatchlistItem(symob=symbol)
+        for symbol in st.session_state.watchlist
+    ],
+)
 
 
 with st.container(border=True):
@@ -183,7 +211,7 @@ with st.container(border=True):
 
 with st.container(border=True):
 
-    st.write("Current Catalyst Events:")
+    st.write("TradeCore Alpha signals:")
 
     signals_df = pd.DataFrame({"Symbol": st.session_state.watchlist,
                                "Status" : ["Test" for symbol in st.session_state.watchlist],
@@ -195,7 +223,7 @@ with st.container(border=True):
                                "Target 1": [random.uniform(5, 200) for symbol in st.session_state.watchlist], 
                                "Target 2": [random.uniform(50, 200) for symbol in st.session_state.watchlist] })
     
-    st.dataframe(signals_df.style.format({"Entry": "${:.2f}", "Stop" : "${:.2f}", "Target 1": "${:.2f}", "Target 2": "${:.2f}"}),
+    st.dataframe(signals_df.style.format({"Entry": format_price, "Stop" : format_price, "Target 1": format_price, "Target 2": format_price}),
                 use_container_width=True)
 
                                           
